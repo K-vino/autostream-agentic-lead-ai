@@ -1,0 +1,25 @@
+{
+    "pricing": {
+        "Basic Plan": {
+            "price": "$29/month",
+            "videos": "10 videos/month",
+            "resolution": "720p",
+            "support": "Email support"
+        },
+        "Pro Plan": {
+            "price": "$79/month",
+            "videos": "Unlimited videos",
+            "resolution": "4K",
+            "features": ["AI captions"],
+            "support": "24/7 support"
+        }
+    },
+    "policies": {
+        "refunds": "No refunds after 7 days.",
+        "support": "24/7 support is exclusive to the Pro plan. Basic plan users get standard email support."
+    },
+    "company_info": {
+        "name": "AutoStream",
+        "description": "An automated video editing tool designed for creators to streamline their workflow."
+    }
+}

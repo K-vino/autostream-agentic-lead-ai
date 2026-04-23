@@ -9,8 +9,10 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 try:
     # Importing the graph builder from the existing backend
     from app.graph.builder import create_graph
+    from app.config import MAX_HISTORY
 except ImportError:
     st.error("⚠️ Error: Could not connect to the backend system. Ensure the 'app' directory is present.")
+    MAX_HISTORY = 6 # Fallback
     st.stop()
 
 # ---------------------------------------------------------
@@ -319,8 +321,10 @@ if user_query := st.chat_input("Message AutoStream Agent..."):
             </div>
         """, unsafe_allow_html=True)
 
-    # 2. Update Backend State input
+    # 2. Update Backend State & Trim History (Performance: keep context small)
     st.session_state.agent_state["input"] = user_query
+    if len(st.session_state.agent_state["history"]) > MAX_HISTORY:
+        st.session_state.agent_state["history"] = st.session_state.agent_state["history"][-MAX_HISTORY:]
     
     # 3. Get Agent Response
     try:
@@ -335,14 +339,23 @@ if user_query := st.chat_input("Message AutoStream Agent..."):
         typing_placeholder.empty()
         
         # 4. Update UI History with agent response
+        bot_time = datetime.now().strftime("%I:%M %p")
         st.session_state.messages.append({
             "role": "assistant", 
             "content": bot_response,
-            "time": datetime.now().strftime("%I:%M %p")
+            "time": bot_time
         })
         
-        # 5. Refresh UI
-        st.rerun()
+        # 5. Render Response Directly (Performance optimized: avoids full rerun)
+        with chat_container:
+            st.markdown(f"""
+                <div class="chat-row">
+                    <div class="bubble agent-bubble">
+                        <p>{bot_response}</p>
+                        <span class="timestamp">{bot_time}</span>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
         
     except Exception as e:
         typing_placeholder.empty()

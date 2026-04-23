@@ -11,15 +11,18 @@ class IntentAgent:
             self.prompt_template = f.read()
 
     def classify(self, user_input: str) -> str:
-        prompt = self.prompt_template.format(input=user_input)
-        response = self.model.generate_content(prompt)
-        intent = response.text.strip().lower()
-
-        
-        # Validation to ensure we only get valid intents
-        valid_intents = ["greeting", "inquiry", "high_intent"]
-        if intent not in valid_intents:
-            # Fallback
+        try:
+            prompt = self.prompt_template.format(input=user_input)
+            response = self.model.generate_content(prompt)
+            intent = response.text.strip().lower()
+            
+            # Validation to ensure we only get valid intents
+            valid_intents = ["greeting", "inquiry", "high_intent"]
+            if intent not in valid_intents:
+                return "inquiry"
+            
+            return intent
+        except Exception:
+            # Fallback to inquiry if LLM fails (e.g. quota limit, connection error)
             return "inquiry"
-        
-        return intent
+

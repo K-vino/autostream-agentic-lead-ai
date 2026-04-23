@@ -30,8 +30,8 @@ class LeadAgent:
         Respond ONLY with a JSON object containing the fields. Use null for missing fields.
         """
         
-        response = self.model.generate_content(extraction_prompt)
         try:
+            response = self.model.generate_content(extraction_prompt)
             # Handle potential markdown formatting in LLM response
             content = response.text.strip()
             if content.startswith("```json"):
@@ -51,5 +51,8 @@ class LeadAgent:
             platform=state.get("platform") or "Missing",
             input=user_input
         )
-        response = self.model.generate_content(prompt)
-        return response.text.strip()
+        try:
+            response = self.model.generate_content(prompt)
+            return response.text.strip()
+        except Exception:
+            return "I'm having a bit of trouble collecting your details. Could you please re-state that?"

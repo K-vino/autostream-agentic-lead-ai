@@ -75,12 +75,13 @@ def tool_node(state: AgentState):
     print("--- [NODE] Tool Execution ---")
     result = mock_lead_capture(state["name"], state["email"], state["platform"])
     
-    final_response = f"{state['response']}\n\n[System Notification: {result}]"
+    final_response = f"All set! I've successfully captured your details for AutoStream. Our team will reach out to you on your preferred platform soon.\n\n[System Notification: {result}]"
     
     return {
         "response": final_response,
-        "history": state["history"] + [AIMessage(content="Lead captured successfully.")]
+        "history": state["history"] + [AIMessage(content=final_response)]
     }
+
 
 def greeting_node(state: AgentState):
     """

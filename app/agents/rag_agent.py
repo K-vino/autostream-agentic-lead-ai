@@ -15,9 +15,13 @@ class RAGAgent:
             self.knowledge = json.load(f)
 
     def answer(self, user_input: str) -> str:
-        # Convert knowledge dict to a readable string for the prompt
-        knowledge_str = json.dumps(self.knowledge, indent=2)
-        prompt = self.prompt_template.format(knowledge=knowledge_str, input=user_input)
-        response = self.model.generate_content(prompt)
-        return response.text.strip()
+        try:
+            # Convert knowledge dict to a readable string for the prompt
+            knowledge_str = json.dumps(self.knowledge, indent=2)
+            prompt = self.prompt_template.format(knowledge=knowledge_str, input=user_input)
+            response = self.model.generate_content(prompt)
+            return response.text.strip()
+        except Exception:
+            return "I'm having trouble accessing my knowledge base right now. Please try again in a moment!"
+
 

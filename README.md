@@ -1,86 +1,118 @@
-# AutoStream Social-to-Lead Agentic Workflow
-*Submission for ServiceHive - Inflx ML Intern Assignment*
+# Social-to-Lead Agentic Workflow: AutoStream
+*Technical Submission for the ServiceHive - Inflx Machine Learning Intern Assignment*
 
-## 🚀 Overview
-This project implements a stateful conversational AI agent for **AutoStream**, a fictional SaaS platform for automated video editing. The system simulates a real-world “social-to-lead” workflow, converting social media inquiries into qualified business leads.
+## 📖 1. Project Background & Problem Statement
+**ServiceHive** is developing **Inflx**, an AI-powered platform designed to convert social media conversations into qualified business leads. This project implements a core component of that vision: a high-reasoning conversational agent for **AutoStream**, a SaaS product providing automated video editing tools.
 
-Built with **LangChain** and **LangGraph**, the agent handles:
-1. **Intent Detection**: Classifying user input (Greeting, Inquiry, High Intent).
-2. **RAG-based Retrieval**: Answering product/pricing questions using a local JSON knowledge base.
-3. **Stateful Lead Capture**: Collecting user details (Name, Email, Platform) before triggering a mock tool.
+### The Challenge
+The agent must go beyond simple chatbots by:
+- **Understanding Intent**: Distinguishing between casual greetings, product inquiries, and high-purchase intent.
+- **Strict Grounding (RAG)**: Answering questions using *only* a provided knowledge base to prevent hallucinations.
+- **Stateful Lead Capture**: Conducting a multi-turn data collection process (Name, Email, Platform) without repetitive questioning.
+- **Safe Tool Execution**: Triggering a lead capture function only when all required data is verified.
 
 ---
 
-## 🛠️ How to Run Locally
+## 🏗️ 2. System Architecture & Core Logic
 
-### 1. Prerequisites
-- Python 3.9+
-- OpenAI API Key
+### Why LangGraph?
+This project utilizes **LangGraph** (built on top of LangChain) to manage the agent's workflow. Unlike standard linear chains, LangGraph allows for:
+- **Cyclic States**: The agent can loop through the lead collection node multiple times until all fields are filled.
+- **Persistence**: The state is maintained across 5-6 conversation turns, allowing for "memory."
+- **Conditional Routing**: Decisions (edges) are separated from processing (nodes), making the system robust and easy to debug.
 
-### 2. Setup
-Clone the repository and navigate to the project folder:
+### Workflow Logic
+The agent follows a graph-based state machine:
+1. **Intent Node**: Every input is analyzed by GPT-4o-mini to classify the intent.
+2. **Conditional Edge**: Routes the user based on intent:
+   - `greeting` → **Greeting Node** (Friendly small talk).
+   - `inquiry` → **RAG Node** (Knowledge retrieval).
+   - `high_intent` → **Lead Node** (Information collection).
+3. **Lead Node Logic**:
+   - The agent extracts potential info from the input.
+   - It checks the `AgentState` for missing fields.
+   - It asks for exactly **one** missing field at a time.
+4. **Tool Node**: Once `name`, `email`, and `platform` are present, the graph routes to the Tool Node to execute `mock_lead_capture()`.
+
+---
+
+## 🛠️ 3. How to Run Locally
+
+### Step 1: Clone and Navigate
 ```bash
 cd autostream-agent
 ```
 
-Install dependencies:
+### Step 2: Install Dependencies
+Ensure you have Python 3.9+ installed.
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Configuration
-Create a `.env` file:
+### Step 3: Configure Environment
+Create a `.env` file from the example:
 ```bash
 cp .env.example .env
 ```
-Add your `OPENAI_API_KEY` to the `.env` file.
+Open `.env` and enter your `OPENAI_API_KEY`.
 
-### 4. Run the Agent
+### Step 4: Start the Agent
 ```bash
 python main.py
 ```
 
 ---
 
-## 🏗️ Architecture Explanation
-
-### Why LangGraph?
-LangGraph was selected because it provides fine-grained control over the **agentic loop**. Unlike standard linear chains, LangGraph allows for:
-- **Cyclic Logic**: Essential for multi-turn lead collection where the agent must repeatedly check for missing information and loop back until the "goal" (full lead capture) is met.
-- **State Management**: It maintains a robust `AgentState` object that persists across turns, ensuring that the agent "remembers" the user's name and email even if they ask a pricing question in the middle of the flow.
-- **Clean Routing**: Separates the "thinking" (Intent Detection) from the "acting" (RAG or Tool Execution) using conditional edges.
-
-### How State is Handled
-The state is managed using a `TypedDict` that tracks:
-- `history`: Full conversation history for context.
-- `intent`: The current user goal.
-- `name`, `email`, `platform`: Specific lead data collected over time.
-- `lead_complete`: A boolean flag that triggers the `tool_node` once all data is present.
-
-Each node in the graph processes the state and returns only the fields that have changed, ensuring a clean and traceable state transition.
-
----
-
-## 📲 WhatsApp Deployment (Webhooks)
-
-To integrate this agent with WhatsApp using Webhooks:
-
-1. **Host the Agent**: Deploy the agent code as a REST API using FastAPI.
-2. **Set up a Webhook**: Configure a Meta for Developers account (WhatsApp Business API) or Twilio. Set your API's `/webhook` endpoint as the callback URL.
-3. **Handle Incoming Messages**:
-   - When a user sends a message, WhatsApp sends a POST request to your webhook.
-   - Your API identifies the user by their phone number (`sender_id`).
-4. **State Persistence**: 
-   - Instead of in-memory storage, use a database (Redis/MongoDB) to store the `AgentState` keyed by the phone number.
-   - Load the state, call `graph.invoke()`, and update the database with the new state.
-5. **Send Response**: Use the WhatsApp API (e.g., `/messages` endpoint) to send the agent's response back to the user.
+## 📂 4. Project Structure
+```text
+autostream-agent/
+├── app/
+│   ├── agents/          # Individual LLM logic (Intent, RAG, Lead)
+│   ├── graph/           # LangGraph orchestration (Nodes, Edges, Builder)
+│   ├── memory/          # TypedDict state schema
+│   ├── tools/           # External actions (mock_lead_capture)
+│   ├── data/            # Local knowledge base (knowledge.json)
+│   ├── prompts/         # Cleanly separated prompt templates
+│   └── config.py        # Centralized settings & file paths
+├── main.py              # CLI Interactive Demo
+├── requirements.txt     # Dependency list
+└── README.md            # Project documentation
+```
 
 ---
 
-## 📂 Project Structure
-- `app/agents/`: Core logic for Intent, RAG, and Lead extraction.
-- `app/graph/`: LangGraph orchestration (nodes and edges).
-- `app/memory/`: State schema definition.
-- `app/tools/`: The `mock_lead_capture` implementation.
-- `app/data/`: `knowledge.json` containing pricing and policies.
-- `main.py`: Interactive CLI for the assignment demo.
+## 📑 5. Knowledge Base (RAG Data)
+The agent answers strictly based on the following data:
+
+| Plan | Price | Videos | Resolution | Support |
+| :--- | :--- | :--- | :--- | :--- |
+| **Basic** | $29/mo | 10/mo | 720p | Email |
+| **Pro** | $79/mo | Unlimited | 4K | 24/7 |
+
+**Policies**:
+- **Refunds**: No refunds after 7 days.
+- **Support**: 24/7 support is exclusive to Pro plan users.
+
+---
+
+## 📲 6. WhatsApp Deployment Strategy
+To deploy this agent for WhatsApp using **Webhooks**:
+
+1. **Infrastructure**:
+   - Use **FastAPI** to host the agent as a REST API.
+   - Use the **Meta for Developers** (WhatsApp Business API) or **Twilio** for messaging.
+2. **Webhook Flow**:
+   - User sends a message → WhatsApp sends a POST request to your `/webhook` endpoint.
+   - Your API parses the `sender_id` (phone number).
+3. **State Persistence**:
+   - Instead of in-memory dictionaries, use **Redis** or **MongoDB** to store the `AgentState` keyed by the phone number.
+   - Fetch state → `graph.invoke(input, state)` → Update state in DB.
+4. **Response**:
+   - Send the resulting `response` string back to the user via the WhatsApp API.
+
+---
+
+## 🎯 7. Evaluation Highlights
+- **No Hallucination**: RAG prompt enforces strict grounding.
+- **Intelligent Flow**: Lead capture recognizes if you provide information out of order.
+- **Production Quality**: Modular code with clear separation of concerns, suitable for real-world scaling.

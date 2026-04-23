@@ -1,4 +1,5 @@
 import os
+import google.generativeai as genai
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -9,11 +10,14 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # API Keys
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
 
 # Model Settings
-LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
+LLM_MODEL = os.getenv("LLM_MODEL", "gemini-1.5-flash")
 TEMPERATURE = float(os.getenv("TEMPERATURE", 0))
+
 
 # File Paths
 DATA_DIR = BASE_DIR / "app" / "data"

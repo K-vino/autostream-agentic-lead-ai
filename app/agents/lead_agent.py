@@ -1,17 +1,16 @@
 import json
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
-from app.config import LLM_MODEL, TEMPERATURE, OPENAI_API_KEY, LEAD_PROMPT_PATH
+import google.generativeai as genai
+from app.config import LLM_MODEL, TEMPERATURE, LEAD_PROMPT_PATH
 
 class LeadAgent:
     def __init__(self):
-        self.llm = ChatOpenAI(
-            model=LLM_MODEL,
-            temperature=TEMPERATURE,
-            openai_api_key=OPENAI_API_KEY
+        self.model = genai.GenerativeModel(
+            model_name=LLM_MODEL,
+            generation_config={"temperature": TEMPERATURE}
         )
         with open(LEAD_PROMPT_PATH, "r") as f:
             self.prompt_template = f.read()
+
 
     def extract_info(self, user_input: str, current_state: dict) -> dict:
         """
@@ -31,10 +30,10 @@ class LeadAgent:
         Respond ONLY with a JSON object containing the fields. Use null for missing fields.
         """
         
-        response = self.llm.invoke(extraction_prompt)
+        response = self.model.generate_content(extraction_prompt)
         try:
             # Handle potential markdown formatting in LLM response
-            content = response.content.strip()
+            content = response.text.strip()
             if content.startswith("```json"):
                 content = content[7:-3].strip()
             extracted = json.loads(content)
@@ -52,5 +51,5 @@ class LeadAgent:
             platform=state.get("platform") or "Missing",
             input=user_input
         )
-        response = self.llm.invoke(prompt)
-        return response.content.strip()
+        response = self.model.generate_content(prompt)
+        return response.text.strip()

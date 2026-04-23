@@ -265,6 +265,27 @@ if "agent_state" not in st.session_state:
         "lead_complete": False
     }
 
+if "fast_cache" not in st.session_state:
+    st.session_state.fast_cache = {}
+
+def get_fast_response(text):
+    """Bypasses LLM for ultra-fast responses (<10ms)"""
+    text = text.lower().strip()
+    if text in st.session_state.fast_cache:
+        return st.session_state.fast_cache[text]
+    
+    # Direct Keyword Matching (Fast Path)
+    if any(x in text for x in ["hi", "hello", "hey", "greeting"]):
+        return "Hello! Welcome to AutoStream. How can I help you today?"
+    if any(x in text for x in ["price", "cost", "plan", "subscription"]):
+        return "AutoStream offers two main plans: Basic ($29/mo) for 10 videos and Pro ($79/mo) for unlimited 4K videos. Which one interests you?"
+    if "refund" in text:
+        return "Our policy is: No refunds after 7 days of subscription."
+    if any(x in text for x in ["who", "what is autostream", "about"]):
+        return "AutoStream is an automated video editing tool designed for creators to streamline their workflow."
+    
+    return None
+
 # ---------------------------------------------------------
 # MESSAGE RENDERING
 # ---------------------------------------------------------
@@ -302,7 +323,7 @@ if user_query := st.chat_input("Message AutoStream Agent..."):
         "time": current_time
     })
     
-    # Render user message instantly to avoid waiting for backend
+    # Render user message instantly
     with chat_container:
         st.markdown(f"""
             <div class="chat-row">
@@ -313,7 +334,6 @@ if user_query := st.chat_input("Message AutoStream Agent..."):
             </div>
         """, unsafe_allow_html=True)
     
-        # Show instant typing indicator
         typing_placeholder = st.empty()
         typing_placeholder.markdown("""
             <div class="typing-indicator">
@@ -321,56 +341,46 @@ if user_query := st.chat_input("Message AutoStream Agent..."):
             </div>
         """, unsafe_allow_html=True)
 
-    # 2. Update Backend State & Trim History (Performance: keep context small)
-    st.session_state.agent_state["input"] = user_query
-    if len(st.session_state.agent_state["history"]) > MAX_HISTORY:
-        st.session_state.agent_state["history"] = st.session_state.agent_state["history"][-MAX_HISTORY:]
+    # 2. FAST-PATH LOOKUP (<50ms)
+    bot_response = get_fast_response(user_query)
     
-    # 3. Get Agent Response
-    try:
-        # Run graph (Performance optimized: no artificial delays)
-        output = agent_graph.invoke(st.session_state.agent_state)
+    if not bot_response:
+        # 3. Backend State & Trim History
+        st.session_state.agent_state["input"] = user_query
+        if len(st.session_state.agent_state["history"]) > MAX_HISTORY:
+            st.session_state.agent_state["history"] = st.session_state.agent_state["history"][-MAX_HISTORY:]
         
-        # Sync state
-        st.session_state.agent_state = output
-        bot_response = output.get("response", "I'm sorry, I couldn't process that.")
-        
-        # Clear typing indicator
-        typing_placeholder.empty()
-        
-        # 4. Update UI History with agent response
-        bot_time = datetime.now().strftime("%I:%M %p")
-        st.session_state.messages.append({
-            "role": "assistant", 
-            "content": bot_response,
-            "time": bot_time
-        })
-        
-        # 5. Render Response Directly (Performance optimized: avoids full rerun)
-        with chat_container:
-            st.markdown(f"""
-                <div class="chat-row">
-                    <div class="bubble agent-bubble">
-                        <p>{bot_response}</p>
-                        <span class="timestamp">{bot_time}</span>
-                    </div>
+        # 4. Get Agent Response
+        try:
+            output = agent_graph.invoke(st.session_state.agent_state)
+            st.session_state.agent_state = output
+            bot_response = output.get("response", "I'm sorry, I couldn't process that.")
+            st.session_state.fast_cache[user_query.lower().strip()] = bot_response
+        except Exception as e:
+            typing_placeholder.empty()
+            st.error(f"Backend Error: {e}")
+            st.stop()
+
+    # Clear typing indicator
+    typing_placeholder.empty()
+    
+    # 5. Update UI History & Render Response Directly
+    bot_time = datetime.now().strftime("%I:%M %p")
+    st.session_state.messages.append({
+        "role": "assistant", 
+        "content": bot_response,
+        "time": bot_time
+    })
+    
+    with chat_container:
+        st.markdown(f"""
+            <div class="chat-row">
+                <div class="bubble agent-bubble">
+                    <p>{bot_response}</p>
+                    <span class="timestamp">{bot_time}</span>
                 </div>
-            """, unsafe_allow_html=True)
-        
-    except Exception as e:
-        typing_placeholder.empty()
-        # Clean, professional error handling in UI
-        st.session_state.messages.append({
-            "role": "assistant", 
-            "content": "⚠️ I encountered an unexpected system error. Please try again or clear the chat session.",
-            "time": datetime.now().strftime("%I:%M %p")
-        })
-        with chat_container:
-            st.markdown(f"""
-                <div class="error-box">
-                    <strong>Backend Connection Error:</strong> {str(e)}
-                </div>
-            """, unsafe_allow_html=True)
+            </div>
+        """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # AUTO-SCROLL JS ENFORCEMENT
